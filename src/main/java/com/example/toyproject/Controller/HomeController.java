@@ -23,6 +23,7 @@ public class HomeController {
     public ResponseEntity<ApiResponse<?>> uploadImage(
             //image라는 이름으로 첨부한 파일 데이터를 자바 객체로 변환해서 받음
             @RequestPart("image") MultipartFile image,
+            @RequestParam("imageUrl") String imageUrl,
             //HTTP 요청의 헤더 영역에 담긴 값을 꺼내서 guestId로
             @RequestHeader("X-Guest-Id") String guestId) {
 

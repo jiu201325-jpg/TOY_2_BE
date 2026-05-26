@@ -1,3 +1,4 @@
+// HomeService.java 전체 코드
 package com.example.toyproject.Service;
 
 import com.example.toyproject.DTO.response.ImageAnalysisDto;
@@ -10,26 +11,18 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.util.Base64;
-import java.util.UUID;
 
 @Service
 public class HomeService {
 
-    @Value("${gemini.api-key}")          //application.properties에서 Gemini AI API 키 가져오기
+    @Value("${gemini.api-key}")
     private String geminiApiKey;
 
-    public ImageAnalysisDto analyzeImage(MultipartFile image, String guestId) {
+    public ImageAnalysisDto analyzeImage(MultipartFile image, String imageUrl) {
 
-        //이미지 로컬 저장
-        String imageUrl = saveImageLocally(image);
-
-        //이미지를 Base64로 변환
+        // 1. 이미지를 Base64로 변환
         String base64Image;
         String mimeType = image.getContentType();
         try {
@@ -39,7 +32,7 @@ public class HomeService {
             throw new CustomException("SERVER_ERROR", "이미지 변환에 실패했습니다");
         }
 
-        //Gemini Vision API 호출
+        // 2. Gemini Vision API 호출
         WebClient webClient = WebClient.builder()
                 .defaultHeader("Content-Type", "application/json")
                 .build();
@@ -64,8 +57,8 @@ public class HomeService {
 
         try {
             String response = webClient.post()
-                    //모델명: gemini-2.5-flash
                     .uri("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + geminiApiKey)
+                    .bodyValue(requestBody)
                     .retrieve()
                     .onStatus(
                             status -> status.isError(),
@@ -75,7 +68,7 @@ public class HomeService {
                     .bodyToMono(String.class)
                     .block();
 
-            // 4. Gemini 응답 파싱
+            // 3. Gemini 응답 파싱
             ObjectMapper mapper = new ObjectMapper();
             JsonNode json = mapper.readTree(response);
             String content = json.get("candidates").get(0)
@@ -83,7 +76,6 @@ public class HomeService {
                     .get("text").asText();
 
             content = content.replace("```json", "").replace("```", "").trim();
-
             JsonNode resultJson = mapper.readTree(content);
 
             return ImageAnalysisDto.builder()
@@ -93,27 +85,12 @@ public class HomeService {
                     .purchaseDate(LocalDate.now())
                     .recommendedEmotion(resultJson.get("recommendedEmotion").asText())
                     .aiConfidence(resultJson.get("aiConfidence").asInt())
-                    .imageUrl(imageUrl)
+                    .imageUrl(imageUrl)   // ← FileService에서 받은 URL 사용
                     .build();
 
         } catch (Exception e) {
             e.printStackTrace();
             throw new CustomException("ANALYZE_FAILED", "상품을 인식하지 못했어요: " + e.getMessage());
-        }
-    }
-
-    //이미지 로컬 저장 메서드
-    private String saveImageLocally(MultipartFile image) {
-        try {
-            String uploadDir = "uploads/";
-            String fileName = UUID.randomUUID() + "_" + image.getOriginalFilename();
-            Path uploadPath = Paths.get(uploadDir);
-            if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
-            Path filePath = uploadPath.resolve(fileName);
-            Files.copy(image.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-            return "/" + uploadDir + fileName;
-        } catch (IOException e) {
-            throw new CustomException("SERVER_ERROR", "이미지 저장에 실패했습니다");
         }
     }
 }
