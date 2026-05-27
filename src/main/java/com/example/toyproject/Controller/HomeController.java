@@ -32,8 +32,8 @@ public class HomeController {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.fail("MISSING_IMAGE", "이미지를 첨부해주세요"));
         }
-        //검증을 무사히 통과한 이미지 파일과 사용자 ID를 Servic계층으로 넘겨 처리 지시
-        ImageAnalysisDto result = homeService.analyzeImage(image, guestId);
+        //검증을 무사히 통과한 이미지 파일과 이미지 URL을 Service계층으로 넘겨 처리 지시
+        ImageAnalysisDto result = homeService.analyzeImage(image, imageUrl);
         //최종 결과 반환
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
